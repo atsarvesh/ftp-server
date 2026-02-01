@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -117,4 +119,40 @@ func sendFTPResponse(conn net.Conn, statusCode int, message string) {
 	if err != nil {
 		log.Printf("failed to send response: %v", err)
 	}
+}
+
+// getDataIPPort parses the PORT command to extract the client's data IP and port
+
+func getDataIPPort(buffer string, ctx *ClientContext) error {
+
+	if !string.HasPrefix(buffer, "PORT ") {
+		return fmt.Errorf("invalid PORT command")
+	}
+
+	params := strings.TrimSpace(buffer[5:])
+
+	parts := strings.Split(params, ",")
+
+	if len(parts) != 6 {
+		return fmt.Errorf("invalid PORT command parameters")
+	}
+
+	var nums [6]int
+
+	for i, part := range parts {
+
+		num, err := strconv.Atoi(strings.TrimSpace(part))
+
+		if err != nil {
+			return fmt.Errorf("invalid PORT command parameter: %s", part)
+		}
+
+		nums[i] = num
+	}
+
+	ctx.clientDataIP = fmt.Sprintf("%d.%d.%d.%d", nums[0], nums[1], nums[2], nums[3])
+
+	ctx.dataPort = nums[4]*256 + nums[5]
+
+	return nil
 }
