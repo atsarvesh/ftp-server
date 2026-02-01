@@ -125,7 +125,7 @@ func sendFTPResponse(conn net.Conn, statusCode int, message string) {
 
 func getDataIPPort(buffer string, ctx *ClientContext) error {
 
-	if !string.HasPrefix(buffer, "PORT ") {
+	if !strings.HasPrefix(buffer, "PORT ") {
 		return fmt.Errorf("invalid PORT command")
 	}
 
