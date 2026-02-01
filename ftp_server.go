@@ -89,3 +89,32 @@ func formatFileMetadata(filename string) string {
 
 	return fmt.Sprintf("%s %d %s  %s %d %s %s\r\n", permissions, nlink, owner, group, size, modTime, filename)
 }
+
+// setupActiveDataConnection establishes an active mode data connection to the client
+
+func setupActiveDataConnection(ctx *ClientContext) (net.Conn, error) {
+
+	address := fmt.Sprintf("%s:%d", ctx.clientDataIP, ctx.dataPort)
+
+	conn, err := net.Dial("tcp", address, 10*time.Second)
+
+	if err != nil {
+		log.Printf("failed to establish data connection: %w", err)
+	}
+	return conn, nil
+}
+
+// sendFTPResponse sends an FTP response to the client
+
+func sendFTPResponse(conn net.Conn, statusCode int, message string) {
+
+	response := fmt.Sprintf("%d %s\r\n", statusCode, message)
+
+	fmt.Printf("sent: %s", response)
+
+	_, err := conn.Write([]byte(response))
+
+	if err != nil {
+		log.Printf("failed to send response: %v", err)
+	}
+}
