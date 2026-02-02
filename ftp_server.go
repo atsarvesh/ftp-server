@@ -156,3 +156,49 @@ func getDataIPPort(buffer string, ctx *ClientContext) error {
 
 	return nil
 }
+
+// handleUser processes the USER command from the client
+
+func handleUser(conn net.Conn, buffer string, ctx *ClientContext) {
+
+	username := strings.TrimSpace(buffer[5:])
+
+	username = strings.TrimRight(username, "\r\n")
+
+	ctx.username = username
+
+	fmt.Printf("Username: %s\n", ctx.username)
+
+	sendFTPResponse(conn, FTPUserOKPassReq, "User name okay, need password.\r\n")
+}
+
+// handlePass processes the PASS command from the client
+
+func handlePass(conn net.Conn, buffer string, ctx *ClientContext) {
+
+	password := strings.TrimSpace(buffer[5:])
+
+	password = strings.TrimRight(password, "\r\n")
+
+	ctx.password = password
+
+	fmt.Printf("Password provided.\n")
+
+	if ctx.username == "anon" {
+
+		ctx.authenticated = true
+
+		sendFTPResponse(conn, FTPLoginSuccess, "Login successful for anonymous user.\r\n")
+
+	} else if ctx.username == UserDefault && ctx.password == PassDefault {
+
+		ctx.authenticated = true
+
+		sendFTPResponse(conn, FTPLoginSuccess, "Login successful.\r\n")
+	} else {
+
+		ctx.authenticated = false
+
+		sendFTPResponse(conn, FTPAuthErr, "Authentication failed.\r\n")
+	}
+}
