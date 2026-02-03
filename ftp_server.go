@@ -202,3 +202,72 @@ func handlePass(conn net.Conn, buffer string, ctx *ClientContext) {
 		sendFTPResponse(conn, FTPAuthErr, "Authentication failed.\r\n")
 	}
 }
+
+// handlePort processes the PORT command from the client
+
+func handlePort(conn net.Conn, buffer string, ctx *ClientContext) {
+
+	err := getDataIPPort(buffer, ctx)
+
+	if err != nil {
+		log.Printf("failed to parse PORT command: %v", err)
+		sendFTPResponse(conn, FTPSyntaxErr, "Invalid PORT parameters.\r\n")
+	}
+
+	fmt.Printf("Data connection parameters set: IP = %s, Port = %d\n", ctx.clientDataIP, ctx.dataPort)
+
+	sendFTPResponse(conn, FTPOK, "PORT command successful.\r\n")
+
+}
+
+// handleList processes the LIST command from the client
+
+func handleList(conn net.Conn, ctx *ClientContext) {
+
+	if !ctx.authenticated {
+		sendFTPResponse(conn, FTPAuthErr, "Please login with USER and PASS.\r\n")
+		return
+	}
+
+	dataConn, err := setupActiveDataConnection(ctx)
+
+	if err != nil {
+
+		log.Printf("failed to establish data connection: %v", err)
+
+		sendFTPResponse(conn, FTPDataConnFail, "Failed to open data connection.\r\n")
+		return
+	}
+
+	defer dataConn.Close()
+
+	sendFTPResponse(conn, FTPDataOpen, "Opening data connection for LIST.\r\n")
+
+	files, err := os.ReadDir(".")
+
+	if err != nil {
+		log.Printf("failed to read directory: %v", err)
+		sendFTPResponse(conn, FTPFileErr, "Could not open directory, permission denied.\r\n")
+		return
+	}
+
+	for _, file := range files {
+
+		if file.Name() == "." || file.Name() == ".." {
+			continue
+		}
+
+		fileMetadata := formatFileMetadata(file.Name())
+
+		_, err := dataConn.Write([]byte(fileMetadata))
+
+		if err != nil {
+			log.Printf("failed to send file metadata: %v", err)
+			sendFTPResponse(conn, FTPFileErr, "Error sending file list.\r\n")
+			return
+		}
+	}
+
+	sendFTPResponse(conn, FTPTransferComplete, "Directory listing completed.\r\n")
+
+}
