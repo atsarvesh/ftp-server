@@ -317,3 +317,34 @@ func handleRetr(conn net.Conn, buffer string, ctx *ClientContext) {
 
 	sendFTPResponse(conn, FTPTransferComplete, "File transfer completed successfully.\r\n")
 }
+
+// processes QUIT command from the client to close the connection
+
+func handleQuit(conn net.Conn) {
+
+	sendFTPResponse(conn, FTPGoodbye, "Goodbye.\r\n")
+	conn.Close()
+}
+
+// processes the SYST command from the client to report the system type
+
+func handleSyst(conn net.Conn) {
+
+	sendFTPResponse(conn, FTPSyst, "UNIX Type: L8\r\n")
+}
+
+// processes any unrecognized commands from the client
+
+func handleUnknown(conn net.Conn) {
+
+	sendFTPResponse(conn, FTPUnknownCmd, "Unknown command.\r\n")
+}
+
+// processes the FEAT command from the client to report supported features
+
+func handleFeat(conn net.Conn) {
+
+	features := "211-Features:\r\n PASV\r\n PORT\r\n211 End\r\n"
+
+	sendFTPResponse(conn, FTPInfo, features)
+}
