@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -270,4 +271,49 @@ func handleList(conn net.Conn, ctx *ClientContext) {
 
 	sendFTPResponse(conn, FTPTransferComplete, "Directory listing completed.\r\n")
 
+}
+
+// handleRetr processes the RETR command from the client to retrieve a file
+
+func handleRetr(conn net.Conn, buffer string, ctx *ClientContext) {
+
+	filename := strings.TrimSpace(buffer[5:])
+
+	filename = strings.TrimRight(filename, "\r\n")
+
+	if !ctx.authenticated {
+		sendFTPResponse(conn, FTPAuthErr, "Please login with USER and PASS.\r\n")
+		return
+	}
+
+	file, err := os.Open(filename)
+
+	if err != nil {
+		log.Printf("failed to open file: %v", err)
+		sendFTPResponse(conn, FTPFileErr, "Could not open file, permission denied.\r\n")
+		return
+	}
+
+	defer file.Close()
+
+	dataConn, err := setupActiveDataConnection(ctx)
+
+	if err != nil {
+		log.Printf("failed to establish data connection: %v", err)
+		sendFTPResponse(conn, FTPDataConnFail, "Failed to open data connection.\r\n")
+		return
+	}
+
+	defer dataConn.Close()
+
+	sendFTPResponse(conn, FTPDataOpen, "Opening data connection for RETR.\r\n")
+
+	_, err = io.Copy(dataConn, file)
+
+	if err != nil {
+		log.Printf("failed to send file data: %v", err)
+		return
+	}
+
+	sendFTPResponse(conn, FTPTransferComplete, "File transfer completed successfully.\r\n")
 }
