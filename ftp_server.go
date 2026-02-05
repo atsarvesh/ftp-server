@@ -6,8 +6,10 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -347,4 +349,49 @@ func handleFeat(conn net.Conn) {
 	features := "211-Features:\r\n PASV\r\n PORT\r\n211 End\r\n"
 
 	sendFTPResponse(conn, FTPInfo, features)
+}
+
+// processes the TYPE command from the client to set the transfer mode
+
+func handleType(conn net.Conn, buffer string, ctx *ClientContext) {
+
+	typeParam := strings.TrimSpace(buffer[5:])
+
+	typeParam = strings.TrimRight(typeParam, "\r\n")
+
+	if strings.HasPrefix(typeParam, "I") {
+
+		ctx.transferMode = BIN
+
+		sendFTPResponse(conn, FTPOK, "Type set to I (binary).\r\n")
+
+	} else if strings.HasPrefix(typeParam, "A") {
+
+		ctx.transferMode = ASC
+
+		sendFTPResponse(conn, FTPOK, "Type set to A (ASCII).\r\n")
+
+	} else {
+
+		sendFTPResponse(conn, FTPUnknownCmd, "Unsupported type. Use I for binary or A for ASCII.\r\n")
+	}
+}
+
+// handleSignal listens for OS signals to gracefully shut down the FTP server
+
+func handleSignal() {
+
+	signalChan := make(chan os.Signal, 1) // channel to receive OS signals
+
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	<-signalChan // block until a signal is received
+
+	log.Println("Shutting down FTP server...")
+
+	if serverListener != nil {
+		serverListener.Close()
+	}
+
+	os.Exit(0)
 }
