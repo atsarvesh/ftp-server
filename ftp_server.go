@@ -422,10 +422,9 @@ func handleClient(conn net.Conn) {
 
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("error reading from client: %v", err)
-			} else {
 				fmt.Printf("Client disconnected successfully.\n")
-
+			} else {
+				log.Printf("Error reading from client: %v", err)
 			}
 			break
 		}
