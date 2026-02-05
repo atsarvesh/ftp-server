@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -394,4 +395,74 @@ func handleSignal() {
 	}
 
 	os.Exit(0)
+}
+
+// handleClient manages the communication with a connected FTP client
+
+func handleClient(conn net.Conn) {
+
+	defer conn.Close()
+
+	clientAddr := conn.RemoteAddr().(*net.TCPAddr)
+
+	fmt.Printf("Client connected %s: %d\n", clientAddr.IP.String(), clientAddr.Port)
+
+	ctx := &ClientContext{
+
+		transferMode: ASC,
+	}
+
+	sendFTPResponse(conn, FTPNewConn, "Welcome to the Go FTP server.\r\n")
+
+	reader := bufio.NewReader(conn)
+
+	for {
+
+		line, err := reader.ReadString('\n')
+
+		if err != nil {
+			if err == io.EOF {
+				log.Printf("error reading from client: %v", err)
+			} else {
+				fmt.Printf("Client disconnected successfully.\n")
+
+			}
+			break
+		}
+
+		buffer := strings.TrimSpace(line)
+
+		if buffer == "" {
+			continue
+		}
+
+		buffer = buffer + "\r\n" // ensure commands are properly terminated
+
+		fmt.Printf("received: %s", buffer)
+
+		switch {
+
+		case strings.HasPrefix(buffer, "USER "):
+			handleUser(conn, buffer, ctx)
+		case strings.HasPrefix(buffer, "PASS "):
+			handlePass(conn, buffer, ctx)
+		case strings.HasPrefix(buffer, "PORT "):
+			handlePort(conn, buffer, ctx)
+		case strings.HasPrefix(buffer, "LIST"):
+			handleList(conn, ctx)
+		case strings.HasPrefix(buffer, "RETR "):
+			handleRetr(conn, buffer, ctx)
+		case strings.HasPrefix(buffer, "QUIT"):
+			handleQuit(conn)
+			return
+		case strings.HasPrefix(buffer, "SYST"):
+			handleSyst(conn)
+		case strings.HasPrefix(buffer, "FEAT"):
+			handleFeat(conn)
+		case strings.HasPrefix(buffer, "TYPE "):
+			handleType(conn, buffer, ctx)
+		default:
+			handleUnknown(conn)
+		}
+	}
 }
