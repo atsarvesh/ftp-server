@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -102,7 +103,7 @@ func setupActiveDataConnection(ctx *ClientContext) (net.Conn, error) {
 
 	address := fmt.Sprintf("%s:%d", ctx.clientDataIP, ctx.dataPort)
 
-	conn, err := net.Dial("tcp", address, 10*time.Second)
+	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
 
 	if err != nil {
 		log.Printf("failed to establish data connection: %w", err)
@@ -463,5 +464,52 @@ func handleClient(conn net.Conn) {
 		default:
 			handleUnknown(conn)
 		}
+	}
+}
+
+func main() {
+
+	fmt.Printf("Starting FTP Server...\n")
+
+	if len(os.Args) != 2 {
+		fmt.Fprintf(os.Stderr, "Usage: %s <port>\n", filepath.Base(os.Args[0]))
+		os.Exit(1)
+	}
+
+	port, err := strconv.Atoi(os.Args[1])
+
+	if err != nil || port <= 0 || port > 65535 {
+		fmt.Fprintf(os.Stderr, "Invalid port number: %s\n", os.Args[1])
+		os.Exit(1)
+	}
+
+	go handleSignal() // start signal handler in a separate goroutine
+
+	address := fmt.Sprintf(":%d", port)
+
+	listener, err := net.Listen("tcp", address)
+
+	if err != nil {
+		log.Fatalf("Failed to start FTP server on port %d: %v", port, err)
+	}
+
+	serverListener = listener // assign to global variable for signal handler
+
+	defer serverListener.Close()
+
+	fmt.Printf("FTP Server created successfully.\n")
+	fmt.Printf("FTP Server bound to port: %d\n", port)
+	fmt.Printf("FTP Server listening on port: %d\n", port)
+
+	// accept incoming client connections
+
+	for {
+		conn, err := serverListener.Accept()
+
+		if err != nil {
+			log.Printf("Failed to accept incoming connection: %v", err)
+			continue
+		}
+		go handleClient(conn)
 	}
 }
